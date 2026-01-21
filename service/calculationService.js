@@ -8,7 +8,7 @@ exports.processCalculation = (a, b) => {
       a,
       b
     ]);
-
+    
     let stdoutData = "";
     let pythonError = "";
     let finalOutput = null;

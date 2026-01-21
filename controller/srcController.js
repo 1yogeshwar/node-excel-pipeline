@@ -42,7 +42,7 @@ const uploadAndValidate = async (req, res) => {
       'Content-Type',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     );
-
+    
     res.send(buffer);
 
     console.log("[NODE] Response sent successfully");

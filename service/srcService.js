@@ -12,7 +12,7 @@ exports.importExcel = async (filePath) => {
 
   const sheet = workbook.Sheets[sheetName];
 
-  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+  const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, blankrows: false  });
   console.log("[NODE] Total rows found:", rows.length);
 
   const headers = rows[0];
@@ -34,57 +34,63 @@ exports.importExcel = async (filePath) => {
   const dataRows = rows.slice(1);
   const processedData = [];
 
-  for (let i = 0; i < dataRows.length; i++) {
-    const excelRow = i + 2;
-    const row = dataRows[i];
 
-    console.log(`\n[NODE] Processing Row ${excelRow}`);
+const BATCH_SIZE = 10;
 
-    const rowData = {};
-    headers.forEach((header, idx) => {
-      rowData[header] = row[idx];
-    });
+for (let i = 0; i < dataRows.length; i = BATCH_SIZE + i) {
+  const batch = dataRows.slice(i, i + BATCH_SIZE);
+  const batchStartRow = i + 2;
+  const batchEndRow =  dataRows.length-1;
 
-    console.log(
-      `[NODE] Row ${excelRow} values → Num1=${rowData.Num1}, Num2=${rowData.Num2}`
-    );
+  console.log(
+    `\n[NODE] Processing batch (${batchStartRow}–${batchEndRow})`
+  );
+
+  let batchSuccess = 0;
+  let batchFailed = 0;
+  const batchErrors = [];
+
+  for (let j = 0; j < batch.length; j++) {
+    const excelRow = batchStartRow + j;
+    const row = batch[j];
 
     try {
-      console.log(`[NODE] Row ${excelRow} → Sending to Python`);
-
-      const sum = await processCalculation(rowData.Num1, rowData.Num2);
-
-      console.log(
-        `[NODE] Row ${excelRow} SUCCESS → Sum=${sum}`
-      );
+      const sum = await processCalculation(row[0], row[1]);
 
       processedData.push({
         // row: excelRow,
-        Num1: rowData.Num1,
-        Num2: rowData.Num2,
+        Num1: row[0],
+        Num2: row[1],
         Sum: sum,
         // status: "SUCCESS"
       });
 
+      batchSuccess++;
     } catch (err) {
-      console.error(
-        `[NODE] Row ${excelRow} FAILED → ${err}`
-      );
-
       processedData.push({
         // row: excelRow,
-        Num1: rowData.Num1,
-        Num2: rowData.Num2,
+        Num1: row[0],
+        Num2: row[1],
         Sum: null,
         // status: "FAILED",
         error: err.toString()
       });
+
+      batchFailed++;
+      batchErrors.push(`Row ${excelRow}: ${err}`);
     }
   }
+  
+  console.log(
+    `[NODE] Batch (${batchStartRow}–${batchEndRow}) completed → success=${batchSuccess}, failed=${batchFailed}`
+  );
 
-  console.log("\n[NODE] Processing completed");
-  console.log("[NODE] Total processed rows:", processedData.length);
-
+  if (batchErrors.length > 0) {
+    console.warn(
+      `[NODE] Batch errors:\n - ${batchErrors.join("\n - ")}`
+    );
+  }
+}
   return processedData;
 };
 
